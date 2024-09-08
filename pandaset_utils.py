@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 from .gen_utils import *
 import logging
+from pandaset import geometry as geom
 
-def cleanup_lidar_data_and_labels(lidar_data: pd.DataFrame, labels:pd.DataFrame, logger: logging.Logger = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+def cleanup_lidar_data_and_labels(lidar_data: pd.DataFrame, labels:pd.DataFrame, lidar_poses: str, logger: logging.Logger = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Filters out only those points in the lidar data which have a corresponding semantic label
     
@@ -22,20 +23,28 @@ def cleanup_lidar_data_and_labels(lidar_data: pd.DataFrame, labels:pd.DataFrame,
     
     check_type(lidar_data, "lidar_data", logger)
     check_type(labels, "labels", logger)
-    # Step 1: Concatenate the labels DataFrame to the lidar_data DataFrame along columns
+    
+    #Step 1: Transform lidar points from global to ego frame
+    lidar_last_three_cols = lidar_data.iloc[:, -3:]
+    lidar_data = geom.lidar_points_to_ego(lidar_data[['x','y', 'z']].to_numpy(),lidar_poses)
+    columns = ['x', 'y', 'z'] 
+    lidar_data = pd.DataFrame(lidar_data, columns=columns)
+    lidar_data = pd.concat([lidar_data, lidar_last_three_cols], axis=1)
+    
+    # Step 2: Concatenate the labels DataFrame to the lidar_data DataFrame along columns
     lidar_data_with_labels = pd.concat([lidar_data, labels], axis=1)
 
-    # Step 2: Filter the DataFrame to keep only the rows where d == 0
+    # Step 3: Filter the DataFrame to keep only the rows where d == 0
     filtered_lidar_data = lidar_data_with_labels[lidar_data_with_labels['d'] == 0]
 
     # Display the final filtered DataFrame
     check_type(filtered_lidar_data,"filtered_lidar_data",logger)
     logger.info(f"Filtered LiDAR data with labels (d=0):\n{filtered_lidar_data}")
     
-    # Step 3: Extract the labels column (the last column) into a separate variable
+    # Step 4: Extract the labels column (the last column) into a separate variable
     lidar_labels = filtered_lidar_data['class']  # The last column
 
-    # Step 4: Extract the rest of the DataFrame into another variable
+    # Step 5: Extract the rest of the DataFrame into another variable
     lidar_data = filtered_lidar_data.iloc[:, :-1]  # All columns except the last one
     
     # Display the results
