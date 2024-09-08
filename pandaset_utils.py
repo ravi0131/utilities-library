@@ -29,7 +29,7 @@ def cleanup_lidar_data_and_labels(lidar_data: pd.DataFrame, labels:pd.DataFrame,
     filtered_lidar_data = lidar_data_with_labels[lidar_data_with_labels['d'] == 0]
 
     # Display the final filtered DataFrame
-    check_type(filtered_lidar_data,"filtered_lidar_data")
+    check_type(filtered_lidar_data,"filtered_lidar_data",logger)
     logger.info(f"Filtered LiDAR data with labels (d=0):\n{filtered_lidar_data}")
     
     # Step 3: Extract the labels column (the last column) into a separate variable
