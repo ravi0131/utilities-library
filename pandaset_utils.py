@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from general_utilities import *
+from .general_utilities import *
 import logging
 
 def cleanup_lidar_data_and_labels(lidar_data: pd.DataFrame, labels:pd.DataFrame, logger: logging.Logger = None) -> tuple[pd.DataFrame, pd.DataFrame]:
