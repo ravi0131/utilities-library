@@ -1,27 +1,7 @@
 import pandas as pd
 import numpy as np
-from general_utilities import get_logger
+from general_utilities import *
 import logging
-
-def check_type(obj, name:str ="Given object", logger: logging.Logger = None) -> None:
-    """
-    Checks whether the given object is a NumPy array or a pandas DataFrame.
-    
-    Args:
-        obj: The object to check.
-        name (str): The name of the object. Default is "Given object".
-        logger (logging.Logger): The logger instance to log messages. Default is None.
-        
-    Returns:
-        None
-    """
-    logger = logger if logger is not None else get_logger()
-    if isinstance(obj, np.ndarray):
-        logger.info(f"{name} is a NumPy array.\n")
-    elif isinstance(obj, pd.DataFrame):
-        logger.info(f"{name} is a pandas DataFrame.\n")
-    else:
-        logger.warning(f"{name} is neither a NumPy array nor a pandas DataFrame.\n")
 
 def cleanup_lidar_data_and_labels(lidar_data: pd.DataFrame, labels:pd.DataFrame, logger: logging.Logger = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
