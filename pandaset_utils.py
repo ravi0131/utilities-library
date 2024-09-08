@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from .general_utilities import *
+from .gen_utils import *
 import logging
 
 def cleanup_lidar_data_and_labels(lidar_data: pd.DataFrame, labels:pd.DataFrame, logger: logging.Logger = None) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -49,3 +49,48 @@ def cleanup_lidar_data_and_labels(lidar_data: pd.DataFrame, labels:pd.DataFrame,
     logger.info(lidar_data)
     
     return lidar_data, lidar_labels
+
+import os
+from typing import List, Tuple
+
+def _check_lidar_frames(base_path, expected_frame_count=80) -> Tuple[bool, List[str]]:
+    """
+    Checks if all scenes have the expected number of LiDAR frames.
+
+    :param base_path: Path to the dataset folder containing scenes (e.g., 'PANDASET').
+    :param expected_frame_count: The expected number of LiDAR frames for each scene (default is 79).
+    :return: Tuple (bool, list), where bool is True if all scenes are valid, and list contains scenes with incorrect frames.
+    """
+    invalid_scenes = []
+
+    # Iterate through each scene directory inside the base path
+    for scene_dir in sorted(os.listdir(base_path)):
+        scene_path = os.path.join(base_path, scene_dir, 'lidar')
+        
+        # Only proceed if the 'lidar' directory exists
+        if os.path.exists(scene_path) and os.path.isdir(scene_path):
+            lidar_files = [f for f in os.listdir(scene_path) if f.endswith('.pkl')]
+            num_frames = len(lidar_files)
+
+            # Check if the number of frames matches the expected count
+            if num_frames != expected_frame_count:
+                invalid_scenes.append((scene_dir, num_frames))
+
+    # If invalid_scenes is empty, all scenes are valid
+    if not invalid_scenes:
+        return True, []
+    else:
+        return False, invalid_scenes
+
+def does_every_scene_have_80_lidar_frames(path_to_dataset: str) -> Tuple[bool, List[str]]:
+    """
+    Check if every scene in the dataset has 80 LiDAR frames.
+
+    :param path_to_dataset: Path to the dataset directory.
+    :return: Tuple where the first element is a boolean indicating if every scene has 80 LiDAR frames,
+             and the second element is a list of scene names that do not have 80 LiDAR frames.
+    """
+    all_valid, invalid_scenes_list = _check_lidar_frames(path_to_dataset, expected_frame_count=80)
+    return all_valid, invalid_scenes_list
+
+does_every_scene_have_80_lidar_frames(dataset_path)
