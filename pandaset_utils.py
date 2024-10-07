@@ -106,77 +106,51 @@ def does_every_scene_have_80_lidar_frames(path_to_dataset: str) -> Tuple[bool, L
     return all_valid, invalid_scenes_list
 
 # Utils for calculating Beam IDs
-def _cartesian_to_spherical(points: np.ndarray)-> tuple[np.ndarray, np.ndarray]:
-    """ Convert cartesian coordinates to spherical (azimuth and elevation angles) for multiple points
+def assign_quantile_beam_ids(points: np.ndarray, num_bins=64, visualise=False) -> np.ndarray:
+    """
+    Assigns beam IDs to points in a point cloud based on quantile-based binning of elevation angles.
+
+    The function calculates the elevation angle for each point in the given point cloud and then assigns 
+    a beam ID based on dividing the elevation range into quantiles. This helps balance the number of points 
+    per bin to avoid issues due to non-uniform distributions.
+
     Args:
-        points (np.ndarray): 3D points in Cartesian coordinates (x, y, z)
+        points (numpy.ndarray): An (n, 3) numpy array representing the point cloud, 
+            where each row contains the (x, y, z) coordinates of a point.
+        num_bins (int, optional): The number of bins to divide the elevation range into. 
+            Default is 64.
+
     Returns:
-        azimuth (np.ndarray): Azimuth angle (horizontal angle) in radians
-        elevation (np.ndarray): Elevation angle (vertical angle) in radians
-    
+        numpy.ndarray: An (n, 1) numpy array containing the beam ID for each point.
+
+    Example:
+        >>> points = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        >>> assign_quantile_beam_ids(points, num_bins=4)
+        array([[2],
+               [3],
+               [3]])
+
+    Notes:
+        - The elevation angle is calculated using:
+          elevation = arctan(z / sqrt(x^2 + y^2))
+        - The function divides the elevation range into `num_bins` using percentiles,
+          ensuring an approximately equal number of points per bin.
+
     """
-    x = points[:, 0]
-    y = points[:, 1]
-    z = points[:, 2]
+    # Calculate elevations for each point
+    x, y, z = points[:, 0], points[:, 1], points[:, 2]
+    elevations = np.arctan2(z, np.sqrt(x**2 + y**2))
     
-    azimuth = np.arctan2(x, y)  # Azimuth (horizontal angle) in radians
-    elevation = np.arctan2(z, np.sqrt(x**2 + y**2))  # Elevation (vertical angle) in radians
-    return azimuth, elevation
+    # Create bins based on quantiles to balance the number of points per bin
+    bins = np.percentile(elevations, np.linspace(0, 100, num_bins + 1))
+    beam_ids = np.digitize(elevations, bins) - 1
+    beam_ids = np.clip(beam_ids, 0, num_bins - 1)
 
-
-def _find_closest_channel(elevations: np.ndarray, correction_table: pd.DataFrame) -> pd.DataFrame:
-    """ Match elevation angle to the closest laser channel for multiple points 
-    Args:
-        elevations (np.ndarray): Elevation angles in radians
-        correction_table (pd.DataFrame): Table containing the correction data for each channel
-    Returns:
-        pd.DataFrame: Correction data for the closest channel for each elevation
-    """
-    vertical_angles = correction_table['Elevation'].to_numpy()
+    # Reshape the beam_ids array to have shape (n, 1)
+    beam_ids = beam_ids.reshape(-1, 1)
     
-    # Find the index of the closest channel for each elevation
-    idx = np.abs(np.radians(vertical_angles).reshape(-1, 1) - elevations).argmin(axis=0)
-    
-    # Return channel IDs and the corresponding channel correction data
-    return correction_table.iloc[idx]
-
-
-def _correct_azimuth(azimuths: np.ndarray, azimuth_offsets: np.ndarray) -> np.ndarray:
-    """ Correct the azimuth angle using the provided offset for each channel 
-    Args:
-        azimuths (np.ndarray): Azimuth angles in radians
-        azimuth_offsets (np.ndarray): Azimuth offsets for each channel in radians
-    Returns:
-        np.ndarray: Corrected azimuth angles
-    """
-    return azimuths - np.radians(azimuth_offsets)
-
-from .gen_utils import visualize_beam_ids
-
-def calculate_beamIds(points: np.ndarray, correction_table: pd.DataFrame, visualize=False) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Assign the beam IDs to each point in the point cloud
-    Args:
-        points (np.ndarray): 3D points in Cartesian coordinates (x, y, z)
-        correction_table (pd.DataFrame): Table containing the correction data for each channel
-    Returns:
-        np.ndarray: Beam IDs assigned
-        np.ndarray: Corrected azimuth angles in degrees
-        np.ndarray: Elevation angles in degrees
-    """
-    # Step 1: Convert Cartesian coordinates to Spherical
-    azimuths, elevations = _cartesian_to_spherical(points)
-    
-    # Step 2: Find closest channel (vertical) for each point
-    closest_channels = _find_closest_channel(elevations, correction_table)
-    
-    # Step 3: Correct azimuth for each point based on the closest channel's azimuth offset
-    corrected_azimuths = _correct_azimuth(azimuths, closest_channels['Azimuth'])
-    
-    # Step 4: Extract channel IDs and return the assigned beam IDs
-    beam_ids = closest_channels['Channel'].to_numpy()
-    
-    if visualize:
+    if visualise:
         visualize_beam_ids(points, beam_ids)
-    
-    return beam_ids, np.degrees(corrected_azimuths), np.degrees(elevations)
+
+    return beam_ids
+
